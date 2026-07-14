@@ -1543,7 +1543,6 @@ if CLIENT then
 		return Color(r, g, b, a)
 	end
 
-	local history_file_handles = {}
 	local HISTORY_DIRECTORY = "easychat/history"
 	function EasyChat.SaveToHistory(name, content)
 		if not name or not content then return end
@@ -1554,27 +1553,22 @@ if CLIENT then
 		end
 
 		local file_name = ("%s/%s_history.txt"):format(HISTORY_DIRECTORY, name:lower())
-		local file_handles = history_file_handles[name]
-		if not file_handles then
-			file_handles = {
-				input = file.Open(file_name, "w", "DATA"),
-				output = file.Open(file_name, "r", "DATA"),
-			}
-			history_file_handles[name] = file_handles
+
+		local pre_content
+		local read_file = file.Open(file_name, "r", "DATA")
+		if read_file then
+			pre_content = read_file:Size() >= 10000
+				and "...\n" .. (read_file:Read(10000 - #content) or "")
+				or read_file:Read(10000)
+			read_file:Close()
 		end
 
-		-- another process is using the file, discard
-		if not file_handles.input or not file_handles.output then return end
+		local write_file = file.Open(file_name, "w", "DATA")
+		if not write_file then return end
 
-		file_handles.input:Seek(0)
-		file_handles.output:Seek(0)
-
-		local pre_content = file_handles.output:Size() >= 10000
-			and "...\n" .. (file_handles.output:Read(10000 - #content) or "")
-			or file_handles.output:Read(10000)
-
-		file_handles.input:Write(pre_content and pre_content .. content or content)
-		file_handles.input:Flush()
+		write_file:Write(pre_content and pre_content .. content or content)
+		write_file:Flush()
+		write_file:Close()
 	end
 
 	function EasyChat.ReadFromHistory(name)
